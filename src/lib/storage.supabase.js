@@ -29,13 +29,13 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-
 const client = createClient(supabaseUrl, supabaseKey);
 
 const SHARED_OWNER = '__shared__';
-const TABLE = 'momenku_storage';
+const TABLE = 'memories_club_storage';
 
 function getDeviceId() {
-  let id = localStorage.getItem('momenku_device_id');
+  let id = localStorage.getItem('memories_club_device_id');
   if (!id) {
     id = crypto.randomUUID();
-    localStorage.setItem('momenku_device_id', id);
+    localStorage.setItem('memories_club_device_id', id);
   }
   return id;
 }

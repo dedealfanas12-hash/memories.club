@@ -5,7 +5,7 @@
 // see "not found". To make links work across devices, wire up
 // storage.supabase.js instead (see README.md).
 
-const PREFIX = 'momenku_v1_';
+const PREFIX = 'memories_club_v1_';
 
 function fullKey(key, shared) {
   return `${PREFIX}${shared ? 'shared' : 'personal'}_${key}`;

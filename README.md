@@ -1,4 +1,4 @@
-# Momenku
+# Memories Club
 
 Web app pembuat undangan/kartu digital custom (ulang tahun, anniversary,
 wisuda, pernikahan, dan acara lainnya) dengan editor bebas geser/resize/
@@ -18,16 +18,26 @@ Buka alamat yang muncul di terminal (biasanya `http://localhost:5173`).
 Semua fitur — bikin desain, upload foto, unduh gambar — langsung jalan tanpa
 setup tambahan.
 
-## Deploy supaya bisa diakses publik
+## Deploy ke GitHub Pages (gratis, tanpa layanan lain)
 
-Paling gampang pakai [Vercel](https://vercel.com) atau
-[Netlify](https://netlify.com):
+Repo ini sudah dilengkapi workflow GitHub Actions yang otomatis build dan
+deploy setiap kali kamu push ke branch `main` — tidak perlu Vercel/Netlify
+sama sekali.
 
-1. Push folder ini ke sebuah repo GitHub
-2. Di Vercel/Netlify, pilih "Import Project" / "Add new site" dari repo itu
-3. Build command: `npm run build`, output folder: `dist` — biasanya
-   terdeteksi otomatis karena ini proyek Vite
-4. Deploy
+1. Push folder ini ke repo GitHub (repo publik, kalau akun GitHub kamu
+   bukan yang berbayar — Pages di repo privat butuh paket Pro/Team)
+2. Di repo itu, buka **Settings → Pages**
+3. Di bagian **Build and deployment → Source**, pilih **GitHub Actions**
+4. Push apa pun ke `main` (atau buka tab **Actions**, pilih workflow
+   "Deploy to GitHub Pages", klik **Run workflow** untuk trigger manual)
+5. Tunggu sampai workflow selesai (ikon centang hijau di tab Actions),
+   lalu situsnya bisa diakses di `https://<username-kamu>.github.io/<nama-repo>/`
+
+Workflow-nya otomatis mendeteksi nama repo untuk path aset, jadi apa pun
+nama repo yang kamu pakai, tidak perlu edit kode apa pun secara manual.
+
+Kalau nanti mau tetap coba Vercel/Netlify sebagai alternatif, project ini
+tetap kompatibel — tinggal import repo-nya di sana seperti biasa.
 
 ## Penting: soal link ke tamu (baca ini dulu)
 
@@ -54,12 +64,20 @@ skala kecil):
    `supabase/schema.sql` dari folder ini
 3. Di Supabase, buka **Project Settings → API**, salin **Project URL** dan
    **anon public key**
-4. Copy `.env.example` jadi `.env`, isi dua variabel itu:
+4. Untuk coba di komputer: copy `.env.example` jadi `.env`, isi dua
+   variabel itu:
    ```
    VITE_SUPABASE_URL=https://xxxxx.supabase.co
    VITE_SUPABASE_ANON_KEY=xxxxx
    ```
-5. Jalankan ulang `npm run dev` (atau redeploy kalau sudah online)
+   lalu jalankan ulang `npm run dev`.
+5. Untuk versi yang di-deploy lewat GitHub Pages: buka repo di GitHub →
+   **Settings → Secrets and variables → Actions → New repository secret**,
+   tambahkan `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` dengan nilai
+   yang sama. Workflow di `.github/workflows/deploy.yml` sudah otomatis
+   memakainya di build berikutnya — cukup push apa pun ke `main`, atau
+   trigger manual lewat tab **Actions → Deploy to GitHub Pages → Run
+   workflow**, untuk redeploy dengan Supabase aktif.
 
 Setelah itu, `src/lib/storage.js` otomatis memakai Supabase, dan link
 undangan bisa dibuka siapa pun tanpa perlu login. Kalau env variable-nya

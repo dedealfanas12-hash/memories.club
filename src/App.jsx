@@ -471,7 +471,7 @@ function GalleryScreen({ myInvitations, loadingList, myTemplates, loadingTemplat
     <div className="min-h-screen" style={{ background: PAPER }}>
       <header className="max-w-5xl mx-auto px-6 pt-10 pb-6 text-center">
         <p style={{ fontFamily: 'Poppins', color: MUTED }} className="text-sm mb-1">Bikin kartu digital untuk momen spesialmu</p>
-        <h1 style={{ fontFamily: 'Fraunces', color: INK }} className="text-4xl sm:text-5xl font-semibold">Momenku</h1>
+        <h1 style={{ fontFamily: 'Fraunces', color: INK }} className="text-4xl sm:text-5xl font-semibold">Memories Club</h1>
       </header>
 
       {(loadingList || myInvitations.length > 0) && (
@@ -684,7 +684,7 @@ function GuestScreen({ invitation, onExport, svgRef }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: PAPER }}>
       {!opened ? (
-        <div className="flex flex-col items-center text-center gap-6" style={{ animation: 'momenkuFade 0.6s ease' }}>
+        <div className="flex flex-col items-center text-center gap-6" style={{ animation: 'memoriesClubFade 0.6s ease' }}>
           <div className="text-6xl">{cat.emoji}</div>
           <div>
             <p style={{ fontFamily: 'Poppins', color: MUTED }} className="text-sm mb-1">Ada undangan spesial untukmu</p>
@@ -696,13 +696,13 @@ function GuestScreen({ invitation, onExport, svgRef }) {
           </button>
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-5" style={{ animation: 'momenkuReveal 0.5s ease' }}>
+        <div className="flex flex-col items-center gap-5" style={{ animation: 'memoriesClubReveal 0.5s ease' }}>
           <InvitationCanvas invitation={invitation} readOnly svgRefProp={svgRef} />
           <button onClick={onExport} style={{ fontFamily: 'Poppins', color: INK }}
             className="mk-input flex items-center gap-2 text-sm rounded-full px-4 py-2 bg-white">
             <Download size={15} /> Unduh gambar
           </button>
-          <p style={{ fontFamily: 'Poppins', color: '#B5AA9C' }} className="text-xs">Dibuat dengan Momenku</p>
+          <p style={{ fontFamily: 'Poppins', color: '#B5AA9C' }} className="text-xs">Dibuat dengan Memories Club</p>
         </div>
       )}
     </div>
@@ -717,8 +717,8 @@ function GlobalStyle() {
   return (
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Poppins:wght@400;500;600;700&family=Playfair+Display:wght@400;700&family=Dancing+Script:wght@600;700&family=Montserrat:wght@400;600;700&display=swap');
-      @keyframes momenkuFade { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
-      @keyframes momenkuReveal { from { opacity: 0; transform: scale(0.94);} to { opacity: 1; transform: scale(1);} }
+      @keyframes memoriesClubFade { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
+      @keyframes memoriesClubReveal { from { opacity: 0; transform: scale(0.94);} to { opacity: 1; transform: scale(1);} }
       .mk-card { border: 1px solid #E7DFD2; }
       .mk-card-dashed { border: 1px dashed #DDD3C4; }
       .mk-divider-top { border-top: 1px solid #F0EAE0; }
