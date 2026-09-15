@@ -18,6 +18,24 @@ Buka alamat yang muncul di terminal (biasanya `http://localhost:5173`).
 Semua fitur — bikin desain, upload foto, unduh gambar — langsung jalan tanpa
 setup tambahan.
 
+## Bisa diinstall (PWA)
+
+Aplikasi ini sudah dilengkapi ikon custom dan konfigurasi PWA, jadi begitu
+online (lewat GitHub Pages atau lainnya), pengunjung bisa menginstallnya
+seperti aplikasi biasa:
+
+- **Desktop (Chrome/Edge)**: muncul ikon install di address bar, atau lewat
+  menu ⋮ → "Install Memories Club"
+- **Android (Chrome)**: muncul banner "Add to Home Screen" / opsi di menu ⋮
+- **iOS (Safari)**: tombol Share → "Add to Home Screen"
+
+Setelah diinstall, aplikasinya buka di jendela sendiri tanpa address bar
+browser, dengan ikon amplop yang sudah dibuatkan di halaman utama/home
+screen. Tombol/opsi install ini baru muncul di versi yang sudah di-build
+(`npm run build` lalu `npm run preview`, atau versi yang sudah online) —
+tidak muncul saat `npm run dev`, karena mode pengembangan sengaja tidak
+mengaktifkan service worker-nya (ini normal, bukan bug).
+
 ## Deploy ke GitHub Pages (gratis, tanpa layanan lain)
 
 Repo ini sudah dilengkapi workflow GitHub Actions yang otomatis build dan
@@ -100,6 +118,9 @@ src/
     storage.js          pemilih otomatis localStorage vs Supabase
     storage.local.js     backend localStorage (default)
     storage.supabase.js  backend Supabase (opsional)
+public/                ikon PWA & favicon (dipakai langsung, tidak diproses build)
+design/
+  icon-source.svg      sumber vektor ikon aplikasi
 supabase/
   schema.sql           skema tabel untuk opsi Supabase
 ```
@@ -115,3 +136,10 @@ supabase/
 - **Warna & font app**: konstanta `INK`, `PAPER`, `BRAND`, `GOLD`, `MUTED`
   di bagian atas `src/App.jsx`, dan daftar `FONTS` untuk pilihan font teks.
 - **Ukuran kanvas**: `CANVAS_W` dan `CANVAS_H` di `src/App.jsx`.
+- **Ikon aplikasi**: sumbernya file `design/icon-source.svg` (bentuk vektor,
+  gampang diedit di Figma/Illustrator/text editor manapun). File PNG hasil
+  render-nya ada di `public/` (`pwa-192x192.png`, `pwa-512x512.png`,
+  `apple-touch-icon.png`, `favicon-32x32.png`, `favicon-16x16.png`) — kalau
+  desainnya diubah, render ulang ke ukuran yang sama lewat tool SVG-to-PNG
+  apa saja (situs online, Figma export, dst), timpa file-file itu, lalu
+  build ulang.
