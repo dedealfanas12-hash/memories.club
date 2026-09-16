@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useId } from 'react';
 import {
   Type, Image as ImageIcon, Square, Circle, Trash2, Copy, ArrowUp, ArrowDown,
-  Download, Link2, Plus, X, ChevronLeft, Loader2, Palette, BookmarkPlus, LayoutTemplate,
+  Download, Link2, Plus, X, ChevronLeft, ChevronRight, Loader2, Palette, BookmarkPlus, LayoutTemplate,
 } from 'lucide-react';
 import { storage } from './lib/storage';
 
@@ -211,13 +211,79 @@ const TEMPLATE_BUILDERS = {
 function buildTemplate(catId, variant = 0) {
   const builders = TEMPLATE_BUILDERS[catId] || TEMPLATE_BUILDERS.other;
   const build = builders[variant] || builders[0];
-  return { ...build(), category: catId, id: `preview-${catId}-${variant}` };
+  const { background, elements, title } = build();
+  return {
+    title,
+    category: catId,
+    id: `preview-${catId}-${variant}`,
+    pages: [{ id: `preview-${catId}-${variant}-p0`, background, elements }],
+  };
+}
+
+// Extra starting points offered when adding a new page to an invitation
+// that already exists — separate from TEMPLATE_BUILDERS, which start a
+// brand-new invitation from scratch.
+const PAGE_TEMPLATES = {
+  blank: {
+    label: 'Kosong',
+    build: () => ({ background: { type: 'solid', color: '#F4F1EC' }, elements: [] }),
+  },
+  details: {
+    label: 'Detail Acara',
+    build: () => ({
+      background: { type: 'solid', color: '#FAF6F0' },
+      elements: [
+        makeTextEl({ text: 'Detail Acara', x: 70, y: 90, width: 400, height: 40, fontSize: 28, fontFamily: 'Playfair Display', color: '#333333', fontWeight: 700, zIndex: 1 }),
+        makeTextEl({ text: 'Akad Nikah', x: 70, y: 170, width: 400, height: 26, fontSize: 16, fontFamily: 'Montserrat', color: '#7A2E4D', fontWeight: 600, zIndex: 1 }),
+        makeTextEl({ text: 'Sabtu, 20 Desember 2026\n08.00 \u2013 10.00 WIB', x: 70, y: 200, width: 400, height: 56, fontSize: 15, fontFamily: 'Poppins', color: '#555555', zIndex: 1 }),
+        makeTextEl({ text: 'Resepsi', x: 70, y: 320, width: 400, height: 26, fontSize: 16, fontFamily: 'Montserrat', color: '#7A2E4D', fontWeight: 600, zIndex: 1 }),
+        makeTextEl({ text: 'Sabtu, 20 Desember 2026\n11.00 \u2013 14.00 WIB', x: 70, y: 350, width: 400, height: 56, fontSize: 15, fontFamily: 'Poppins', color: '#555555', zIndex: 1 }),
+      ],
+    }),
+  },
+  location: {
+    label: 'Lokasi',
+    build: () => ({
+      background: { type: 'solid', color: '#F4F1EC' },
+      elements: [
+        makeTextEl({ text: 'Lokasi', x: 70, y: 90, width: 400, height: 40, fontSize: 28, fontFamily: 'Playfair Display', color: '#333333', fontWeight: 700, zIndex: 1 }),
+        makeShapeEl('rect', { x: 70, y: 160, width: 400, height: 220, fill: '#D9D2C6', opacity: 1, rx: 14, zIndex: 0 }),
+        makeTextEl({ text: 'Nama gedung / tempat', x: 70, y: 400, width: 400, height: 26, fontSize: 17, fontFamily: 'Poppins', color: '#333333', fontWeight: 600, zIndex: 1 }),
+        makeTextEl({ text: 'Alamat lengkap di sini', x: 70, y: 430, width: 400, height: 26, fontSize: 14, fontFamily: 'Poppins', color: '#666666', zIndex: 1 }),
+      ],
+    }),
+  },
+  rsvp: {
+    label: 'RSVP / Ucapan',
+    build: () => ({
+      background: { type: 'gradient', from: '#FDF6EE', to: '#EFDCC0' },
+      elements: [
+        makeTextEl({ text: 'Terima Kasih', x: 70, y: 280, width: 400, height: 46, fontSize: 32, fontFamily: 'Playfair Display', color: '#5C4630', fontWeight: 700, zIndex: 1 }),
+        makeTextEl({ text: 'Atas kehadiran dan doa restu yang diberikan', x: 70, y: 340, width: 400, height: 56, fontSize: 15, fontFamily: 'Poppins', color: '#8A7561', zIndex: 1 }),
+      ],
+    }),
+  },
+};
+
+// Older saved invitations/templates stored one flat {background, elements}
+// set instead of a pages array — wrap them so the rest of the app can
+// always assume invitation.pages exists.
+function normalizeInvitation(raw) {
+  if (raw && Array.isArray(raw.pages) && raw.pages.length > 0) return raw;
+  return {
+    ...raw,
+    pages: [{
+      id: uid(),
+      background: (raw && raw.background) || { type: 'solid', color: '#F4F1EC' },
+      elements: (raw && raw.elements) || [],
+    }],
+  };
 }
 
 /* ---------------------------------------------------------------
    Canvas rendering
 ----------------------------------------------------------------*/
-function ElementShapeInner({ el }) {
+function ElementShapeInner({ el, instanceId }) {
   if (el.type === 'shape' && el.shapeType === 'circle') {
     return <ellipse cx={el.width / 2} cy={el.height / 2} rx={el.width / 2} ry={el.height / 2} fill={el.fill} opacity={el.opacity} />;
   }
@@ -226,7 +292,7 @@ function ElementShapeInner({ el }) {
   }
   if (el.type === 'image') {
     return (
-      <image href={el.href} width={el.width} height={el.height} preserveAspectRatio="xMidYMid slice" clipPath={`url(#clip-${el.id})`} />
+      <image href={el.href} width={el.width} height={el.height} preserveAspectRatio="xMidYMid slice" clipPath={`url(#clip-${instanceId}-${el.id})`} />
     );
   }
   if (el.type === 'text') {
@@ -247,7 +313,7 @@ function ElementShapeInner({ el }) {
   return null;
 }
 
-function CanvasElement({ el, isSelected, readOnly, onSelectAndMove, onResizeStart }) {
+function CanvasElement({ el, isSelected, readOnly, onSelectAndMove, onResizeStart, instanceId }) {
   const cx = el.x + el.width / 2;
   const cy = el.y + el.height / 2;
   const handles = [
@@ -260,7 +326,7 @@ function CanvasElement({ el, isSelected, readOnly, onSelectAndMove, onResizeStar
     <g transform={`rotate(${el.rotation} ${cx} ${cy}) translate(${el.x} ${el.y})`}>
       {el.type === 'image' && (
         <defs>
-          <clipPath id={`clip-${el.id}`}>
+          <clipPath id={`clip-${instanceId}-${el.id}`}>
             <rect width={el.width} height={el.height} rx={el.rx || 0} />
           </clipPath>
         </defs>
@@ -270,7 +336,7 @@ function CanvasElement({ el, isSelected, readOnly, onSelectAndMove, onResizeStar
         style={{ cursor: readOnly ? 'default' : 'move' }}
       >
         <rect width={el.width} height={el.height} fill="transparent" />
-        <ElementShapeInner el={el} />
+        <ElementShapeInner el={el} instanceId={instanceId} />
       </g>
       {isSelected && (
         <>
@@ -297,17 +363,23 @@ function CanvasElement({ el, isSelected, readOnly, onSelectAndMove, onResizeStar
   );
 }
 
-function InvitationCanvas({ invitation, readOnly, selectedId, svgRefProp, onPointerDownMove, onPointerDownResize, onBackgroundClick }) {
-  const bg = invitation.background;
-  const elements = [...invitation.elements].sort((a, b) => a.zIndex - b.zIndex);
-  const gradId = `bg-${invitation.id}`;
+function PageCanvas({ page, readOnly, selectedId, svgRefProp, onPointerDownMove, onPointerDownResize, onBackgroundClick, thumb }) {
+  const bg = page.background;
+  const elements = [...page.elements].sort((a, b) => a.zIndex - b.zIndex);
+  // useId keeps ids unique per rendered instance — the same page can appear
+  // twice at once (main canvas + its thumbnail in the page strip), and
+  // duplicate SVG ids would make both resolve to whichever came first.
+  // Colons from useId are stripped: they break url(#...) references in SVG.
+  const instanceId = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const gradId = `bg-${instanceId}`;
   return (
     <svg
       ref={svgRefProp}
       viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
       style={{
-        width: '100%', maxWidth: 420, height: 'auto', touchAction: 'none',
-        borderRadius: 18, boxShadow: '0 16px 44px rgba(43,36,32,0.22)',
+        width: '100%', maxWidth: thumb ? '100%' : 420, height: 'auto', touchAction: 'none',
+        borderRadius: thumb ? 4 : 18,
+        boxShadow: thumb ? 'none' : '0 16px 44px rgba(43,36,32,0.22)',
         display: 'block', background: '#fff',
       }}
     >
@@ -332,6 +404,7 @@ function InvitationCanvas({ invitation, readOnly, selectedId, svgRefProp, onPoin
           isSelected={!readOnly && selectedId === el.id}
           onSelectAndMove={onPointerDownMove}
           onResizeStart={onPointerDownResize}
+          instanceId={instanceId}
         />
       ))}
     </svg>
@@ -539,7 +612,7 @@ function GalleryScreen({ myInvitations, loadingList, myTemplates, loadingTemplat
                 <span style={{ fontFamily: 'Poppins', color: INK }} className="text-sm font-medium">{cat.emoji} {name}</span>
               </div>
               <div style={{ width: '100%', maxWidth: 200 }}>
-                <InvitationCanvas invitation={tpl} readOnly />
+                <PageCanvas page={tpl.pages[0]} readOnly />
               </div>
               <PrimaryButton onClick={() => onStartBuiltin(cat.id, variant)} full>
                 <Plus size={16} /> Pakai desain ini
@@ -555,8 +628,63 @@ function GalleryScreen({ myInvitations, loadingList, myTemplates, loadingTemplat
 /* ---------------------------------------------------------------
    Editor screen
 ----------------------------------------------------------------*/
+function PageStrip({ pages, activeIndex, onSelect, onAdd, onDelete }) {
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto pb-1 w-full">
+      {pages.map((page, i) => (
+        <div key={page.id} className="relative shrink-0">
+          <button
+            onClick={() => onSelect(i)}
+            title={`Halaman ${i + 1}`}
+            className="rounded-lg overflow-hidden"
+            style={{ width: 56, height: 74, border: `2px solid ${i === activeIndex ? BRAND : '#E7DFD2'}`, padding: 0 }}
+          >
+            <PageCanvas page={page} readOnly thumb />
+          </button>
+          {pages.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(i); }}
+              title="Hapus halaman"
+              className="absolute flex items-center justify-center"
+              style={{ top: -6, right: -6, width: 18, height: 18, borderRadius: 999, background: '#fff', border: '1px solid #E7DFD2', color: INK }}
+            >
+              <X size={11} />
+            </button>
+          )}
+        </div>
+      ))}
+      <div className="relative shrink-0">
+        <button
+          onClick={() => setShowAddMenu((v) => !v)}
+          title="Tambah halaman"
+          className="mk-icon-btn flex items-center justify-center rounded-lg"
+          style={{ width: 56, height: 74 }}
+        >
+          <Plus size={18} />
+        </button>
+        {showAddMenu && (
+          <div className="mk-card absolute z-30 top-full mt-1 left-0 bg-white rounded-xl p-2 flex flex-col gap-1 shadow-lg" style={{ width: 168 }}>
+            {Object.entries(PAGE_TEMPLATES).map(([key, t]) => (
+              <button
+                key={key}
+                onClick={() => { onAdd(key); setShowAddMenu(false); }}
+                className="mk-menu-item text-left text-sm rounded-lg px-2 py-1.5"
+                style={{ fontFamily: 'Poppins', color: INK }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function EditorScreen({
   invitation, selectedEl, selectedId, svgRef, shareUrl, saveStatus, templateSaveStatus,
+  activePageIndex, onSelectPage, onAddPage, onDeletePage,
   onBack, onTitleChange, onBackgroundChange, onAddText, onAddShape, onAddImageClick,
   onUpdateSelected, onDeleteSelected, onDuplicateSelected, onLayer, onReplaceImage,
   onPointerDownMove, onPointerDownResize, onBackgroundClick, onSaveShare, onExport, onCloseShare, onSaveAsTemplate,
@@ -564,6 +692,7 @@ function EditorScreen({
   const [showBg, setShowBg] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [templateName, setTemplateName] = useState(invitation.title);
+  const activePage = invitation.pages[activePageIndex] || invitation.pages[0];
   return (
     <div className="min-h-screen flex flex-col" style={{ background: PAPER }}>
       <header className="mk-header flex items-center justify-between px-4 sm:px-6 py-3 sticky top-0 z-20">
@@ -588,6 +717,14 @@ function EditorScreen({
 
       <div className="flex-1 flex flex-col lg:flex-row gap-6 max-w-6xl w-full mx-auto p-4 sm:p-6">
         <div className="flex-1 flex flex-col items-center gap-4">
+          <PageStrip
+            pages={invitation.pages}
+            activeIndex={activePageIndex}
+            onSelect={onSelectPage}
+            onAdd={onAddPage}
+            onDelete={onDeletePage}
+          />
+
           <div className="flex flex-wrap items-center gap-2 justify-center relative">
             <IconBtn onClick={onAddText} title="Tambah teks"><Type size={16} /></IconBtn>
             <IconBtn onClick={onAddImageClick} title="Tambah foto"><ImageIcon size={16} /></IconBtn>
@@ -605,8 +742,8 @@ function EditorScreen({
             )}
           </div>
 
-          <InvitationCanvas
-            invitation={invitation}
+          <PageCanvas
+            page={activePage}
             svgRefProp={svgRef}
             selectedId={selectedId}
             onPointerDownMove={onPointerDownMove}
@@ -680,7 +817,10 @@ function EditorScreen({
 ----------------------------------------------------------------*/
 function GuestScreen({ invitation, onExport, svgRef }) {
   const [opened, setOpened] = useState(false);
+  const [pageIndex, setPageIndex] = useState(0);
   const cat = CATEGORIES.find((c) => c.id === invitation.category) || CATEGORIES[CATEGORIES.length - 1];
+  const pages = invitation.pages;
+  const currentPage = pages[pageIndex] || pages[0];
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: PAPER }}>
       {!opened ? (
@@ -697,10 +837,35 @@ function GuestScreen({ invitation, onExport, svgRef }) {
         </div>
       ) : (
         <div className="flex flex-col items-center gap-5" style={{ animation: 'memoriesClubReveal 0.5s ease' }}>
-          <InvitationCanvas invitation={invitation} readOnly svgRefProp={svgRef} />
-          <button onClick={onExport} style={{ fontFamily: 'Poppins', color: INK }}
+          <PageCanvas page={currentPage} readOnly svgRefProp={svgRef} />
+
+          {pages.length > 1 && (
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
+                disabled={pageIndex === 0}
+                className="mk-icon-btn flex items-center justify-center rounded-full"
+                style={{ width: 36, height: 36, opacity: pageIndex === 0 ? 0.4 : 1 }}
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span style={{ fontFamily: 'Poppins', color: MUTED }} className="text-sm">
+                {pageIndex + 1} / {pages.length}
+              </span>
+              <button
+                onClick={() => setPageIndex((i) => Math.min(pages.length - 1, i + 1))}
+                disabled={pageIndex === pages.length - 1}
+                className="mk-icon-btn flex items-center justify-center rounded-full"
+                style={{ width: 36, height: 36, opacity: pageIndex === pages.length - 1 ? 0.4 : 1 }}
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
+
+          <button onClick={() => onExport(pageIndex + 1)} style={{ fontFamily: 'Poppins', color: INK }}
             className="mk-input flex items-center gap-2 text-sm rounded-full px-4 py-2 bg-white">
-            <Download size={15} /> Unduh gambar
+            <Download size={15} /> Unduh halaman ini
           </button>
           <p style={{ fontFamily: 'Poppins', color: '#B5AA9C' }} className="text-xs">Dibuat dengan Memories Club</p>
         </div>
@@ -730,6 +895,7 @@ function GlobalStyle() {
       .mk-input:focus { border-color: #7A2E4D; }
       .mk-header { background: rgba(255,255,255,0.85); border-bottom: 1px solid #E7DFD2; }
       .mk-overlay { background: rgba(0,0,0,0.4); }
+      .mk-menu-item:hover { background: #F6F3EE; }
     `}</style>
   );
 }
@@ -740,6 +906,7 @@ function GlobalStyle() {
 export default function App() {
   const [screen, setScreen] = useState('gallery');
   const [invitation, setInvitation] = useState(null);
+  const [activePageIndex, setActivePageIndex] = useState(0);
   const [selectedId, setSelectedId] = useState(null);
   const [shareUrl, setShareUrl] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
@@ -764,7 +931,7 @@ export default function App() {
         try {
           const res = await storage.get(`invite:${m[1]}`, true);
           if (res && res.value) {
-            setInvitation(JSON.parse(res.value));
+            setInvitation(normalizeInvitation(JSON.parse(res.value)));
             setScreen('guest');
           } else {
             setScreen('guest-notfound');
@@ -873,59 +1040,96 @@ export default function App() {
     window.addEventListener('pointerup', onPointerUp);
   }
 
+  function updatePageAt(index, patch) {
+    setInvitation((prev) => prev && ({
+      ...prev,
+      pages: prev.pages.map((p, i) => (i === index ? { ...p, ...patch } : p)),
+    }));
+  }
+
+  function updatePageElementsAt(index, updater) {
+    setInvitation((prev) => prev && ({
+      ...prev,
+      pages: prev.pages.map((p, i) => (i === index ? { ...p, elements: updater(p.elements) } : p)),
+    }));
+  }
+
   function updateElement(id, patch) {
-    setInvitation((prev) => prev && ({ ...prev, elements: prev.elements.map((el) => (el.id === id ? { ...el, ...patch } : el)) }));
+    updatePageElementsAt(activePageIndex, (elements) => elements.map((el) => (el.id === id ? { ...el, ...patch } : el)));
   }
 
   function deleteElement(id) {
-    setInvitation((prev) => prev && ({ ...prev, elements: prev.elements.filter((el) => el.id !== id) }));
+    updatePageElementsAt(activePageIndex, (elements) => elements.filter((el) => el.id !== id));
     setSelectedId(null);
   }
 
   function duplicateElement(id) {
     if (!invitation) return;
-    const el = invitation.elements.find((e) => e.id === id);
+    const page = invitation.pages[activePageIndex];
+    const el = page.elements.find((e) => e.id === id);
     if (!el) return;
     const newId = uid();
-    const maxZ = Math.max(0, ...invitation.elements.map((e) => e.zIndex));
+    const maxZ = Math.max(0, ...page.elements.map((e) => e.zIndex));
     const newEl = { ...el, id: newId, x: el.x + 18, y: el.y + 18, zIndex: maxZ + 1 };
-    setInvitation((prev) => ({ ...prev, elements: [...prev.elements, newEl] }));
+    updatePageElementsAt(activePageIndex, (elements) => [...elements, newEl]);
     setSelectedId(newId);
   }
 
   function changeLayer(id, direction) {
-    setInvitation((prev) => {
-      const sorted = [...prev.elements].sort((a, b) => a.zIndex - b.zIndex);
+    updatePageElementsAt(activePageIndex, (elements) => {
+      const sorted = [...elements].sort((a, b) => a.zIndex - b.zIndex);
       const idx = sorted.findIndex((e) => e.id === id);
       const swapIdx = direction === 'up' ? idx + 1 : idx - 1;
-      if (swapIdx < 0 || swapIdx >= sorted.length) return prev;
+      if (swapIdx < 0 || swapIdx >= sorted.length) return elements;
       const zA = sorted[idx].zIndex;
       const zB = sorted[swapIdx].zIndex;
-      return {
-        ...prev,
-        elements: prev.elements.map((e) => {
-          if (e.id === sorted[idx].id) return { ...e, zIndex: zB };
-          if (e.id === sorted[swapIdx].id) return { ...e, zIndex: zA };
-          return e;
-        }),
-      };
+      return elements.map((e) => {
+        if (e.id === sorted[idx].id) return { ...e, zIndex: zB };
+        if (e.id === sorted[swapIdx].id) return { ...e, zIndex: zA };
+        return e;
+      });
     });
   }
 
   function addText() {
     if (!invitation) return;
-    const maxZ = Math.max(0, ...invitation.elements.map((e) => e.zIndex));
+    const page = invitation.pages[activePageIndex];
+    const maxZ = Math.max(0, ...page.elements.map((e) => e.zIndex));
     const el = makeTextEl({ zIndex: maxZ + 1 });
-    setInvitation((prev) => ({ ...prev, elements: [...prev.elements, el] }));
+    updatePageElementsAt(activePageIndex, (elements) => [...elements, el]);
     setSelectedId(el.id);
   }
 
   function addShape(shapeType) {
     if (!invitation) return;
-    const maxZ = Math.max(0, ...invitation.elements.map((e) => e.zIndex));
+    const page = invitation.pages[activePageIndex];
+    const maxZ = Math.max(0, ...page.elements.map((e) => e.zIndex));
     const el = makeShapeEl(shapeType, { zIndex: maxZ + 1 });
-    setInvitation((prev) => ({ ...prev, elements: [...prev.elements, el] }));
+    updatePageElementsAt(activePageIndex, (elements) => [...elements, el]);
     setSelectedId(el.id);
+  }
+
+  function addPage(templateKey) {
+    if (!invitation) return;
+    const tpl = (PAGE_TEMPLATES[templateKey] || PAGE_TEMPLATES.blank).build();
+    const newPage = { id: uid(), ...tpl };
+    const newIndex = invitation.pages.length;
+    setInvitation((prev) => ({ ...prev, pages: [...prev.pages, newPage] }));
+    setActivePageIndex(newIndex);
+    setSelectedId(null);
+  }
+
+  function removePage(index) {
+    if (!invitation || invitation.pages.length <= 1) return;
+    const newLength = invitation.pages.length - 1;
+    setInvitation((prev) => ({ ...prev, pages: prev.pages.filter((_, i) => i !== index) }));
+    setActivePageIndex((prev) => Math.min(prev, newLength - 1));
+    setSelectedId(null);
+  }
+
+  function selectPage(index) {
+    setActivePageIndex(index);
+    setSelectedId(null);
   }
 
   function compressImageFile(file) {
@@ -963,9 +1167,10 @@ export default function App() {
         updateElement(replaceTargetRef.current, { href: dataUrl });
         replaceTargetRef.current = null;
       } else {
-        const maxZ = Math.max(0, ...invitation.elements.map((e) => e.zIndex));
+        const page = invitation.pages[activePageIndex];
+        const maxZ = Math.max(0, ...page.elements.map((e) => e.zIndex));
         const el = makeImageEl(dataUrl, { zIndex: maxZ + 1 });
-        setInvitation((prev) => ({ ...prev, elements: [...prev.elements, el] }));
+        updatePageElementsAt(activePageIndex, (elements) => [...elements, el]);
         setSelectedId(el.id);
       }
     } catch (e) {
@@ -1013,7 +1218,7 @@ export default function App() {
       const finalName = (name || '').trim() || invitation.title;
       const templateData = {
         id: newId, name: finalName, category: invitation.category,
-        background: invitation.background, elements: invitation.elements, createdAt: Date.now(),
+        pages: invitation.pages, createdAt: Date.now(),
       };
       await storage.set(`template:${newId}`, JSON.stringify(templateData), false);
       let list = [];
@@ -1030,7 +1235,7 @@ export default function App() {
     }
   }
 
-  function handleExportPNG() {
+  function handleExportPNG(pageNumber) {
     const svg = svgRef.current;
     if (!svg) return;
     const clone = svg.cloneNode(true);
@@ -1051,7 +1256,9 @@ export default function App() {
       URL.revokeObjectURL(url);
       canvas.toBlob((blob) => {
         const link = document.createElement('a');
-        link.download = `${(invitation.title || 'undangan').replace(/\s+/g, '-').toLowerCase()}.png`;
+        const base = (invitation.title || 'undangan').replace(/\s+/g, '-').toLowerCase();
+        const pageSuffix = (invitation.pages.length > 1 && pageNumber) ? `-halaman-${pageNumber}` : '';
+        link.download = `${base}${pageSuffix}.png`;
         link.href = URL.createObjectURL(blob);
         link.click();
       }, 'image/png');
@@ -1063,7 +1270,8 @@ export default function App() {
     try {
       const res = await storage.get(`invite:${id}`, true);
       if (res && res.value) {
-        setInvitation(JSON.parse(res.value));
+        setInvitation(normalizeInvitation(JSON.parse(res.value)));
+        setActivePageIndex(0);
         setSelectedId(null);
         setShareUrl('');
         setSaveStatus('');
@@ -1077,6 +1285,7 @@ export default function App() {
   function startFromBuiltin(catId, variant) {
     const tpl = buildTemplate(catId, variant);
     setInvitation({ ...tpl, id: uid(), createdAt: Date.now() });
+    setActivePageIndex(0);
     setSelectedId(null);
     setShareUrl('');
     setSaveStatus('');
@@ -1087,8 +1296,9 @@ export default function App() {
     try {
       const res = await storage.get(`template:${templateId}`, false);
       if (res && res.value) {
-        const t = JSON.parse(res.value);
-        setInvitation({ category: t.category, background: t.background, elements: t.elements, id: uid(), title: t.name, createdAt: Date.now() });
+        const t = normalizeInvitation(JSON.parse(res.value));
+        setInvitation({ category: t.category, pages: t.pages, id: uid(), title: t.name, createdAt: Date.now() });
+        setActivePageIndex(0);
         setSelectedId(null);
         setShareUrl('');
         setSaveStatus('');
@@ -1099,7 +1309,7 @@ export default function App() {
     }
   }
 
-  const selectedEl = invitation && selectedId ? invitation.elements.find((e) => e.id === selectedId) : null;
+  const selectedEl = invitation && selectedId ? invitation.pages[activePageIndex].elements.find((e) => e.id === selectedId) : null;
 
   const hiddenFileInput = (
     <input
@@ -1153,9 +1363,13 @@ export default function App() {
           shareUrl={shareUrl}
           saveStatus={saveStatus}
           templateSaveStatus={templateSaveStatus}
+          activePageIndex={activePageIndex}
+          onSelectPage={selectPage}
+          onAddPage={addPage}
+          onDeletePage={removePage}
           onBack={() => setScreen('gallery')}
           onTitleChange={(v) => setInvitation((prev) => ({ ...prev, title: v }))}
-          onBackgroundChange={(bg) => setInvitation((prev) => ({ ...prev, background: bg }))}
+          onBackgroundChange={(bg) => updatePageAt(activePageIndex, { background: bg })}
           onAddText={addText}
           onAddShape={addShape}
           onAddImageClick={requestAddImage}
@@ -1168,7 +1382,7 @@ export default function App() {
           onPointerDownResize={handleResizeStart}
           onBackgroundClick={() => setSelectedId(null)}
           onSaveShare={handleSaveShare}
-          onExport={handleExportPNG}
+          onExport={() => handleExportPNG(activePageIndex + 1)}
           onCloseShare={() => setShareUrl('')}
           onSaveAsTemplate={handleSaveAsTemplate}
         />

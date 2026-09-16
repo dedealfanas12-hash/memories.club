@@ -18,6 +18,24 @@ Buka alamat yang muncul di terminal (biasanya `http://localhost:5173`).
 Semua fitur — bikin desain, upload foto, unduh gambar — langsung jalan tanpa
 setup tambahan.
 
+## Undangan banyak halaman
+
+Satu undangan bisa terdiri dari beberapa halaman, mirip menambah/menghapus
+halaman di Word. Di editor, deretan thumbnail di atas kanvas adalah daftar
+halamannya:
+
+- Klik thumbnail untuk pindah dan mengedit halaman itu
+- Klik tombol **+** untuk menambah halaman, dengan pilihan titik awal:
+  Kosong, Detail Acara, Lokasi, atau RSVP/Ucapan
+- Klik tanda **×** di pojok thumbnail untuk menghapus halaman
+  (tombol ini otomatis hilang kalau tinggal satu halaman, supaya undangan
+  tidak pernah kosong)
+
+Tiap halaman punya latar dan elemennya sendiri, jadi bisa didesain berbeda-
+beda. Di sisi tamu, kalau undangan punya lebih dari satu halaman akan muncul
+navigasi maju-mundur beserta nomor halaman. Tombol unduh menyimpan halaman
+yang sedang dibuka sebagai PNG.
+
 ## Bisa diinstall (PWA)
 
 Aplikasi ini sudah dilengkapi ikon custom dan konfigurasi PWA, jadi begitu
@@ -133,6 +151,13 @@ supabase/
   menambah varian template, lalu update `TEMPLATE_NAMES` dan
   `TEMPLATE_COUNT` (kalau jumlah varian antar kategori dibuat berbeda,
   sesuaikan bagian yang memakai `TEMPLATE_COUNT` di `GalleryScreen`).
+- **Pilihan halaman baru**: `PAGE_TEMPLATES` di `src/App.jsx` — isi menu yang
+  muncul saat menekan tombol **+** di daftar halaman. Tambah entri baru
+  (`{ label, build }`) untuk menyediakan titik awal halaman lainnya.
+- **Struktur data**: satu undangan berbentuk
+  `{ id, title, category, pages: [{ id, background, elements }] }`. Undangan
+  lama yang tersimpan sebelum fitur multi-halaman ada otomatis dikonversi
+  oleh `normalizeInvitation`, jadi data lama tetap bisa dibuka.
 - **Warna & font app**: konstanta `INK`, `PAPER`, `BRAND`, `GOLD`, `MUTED`
   di bagian atas `src/App.jsx`, dan daftar `FONTS` untuk pilihan font teks.
 - **Ukuran kanvas**: `CANVAS_W` dan `CANVAS_H` di `src/App.jsx`.
